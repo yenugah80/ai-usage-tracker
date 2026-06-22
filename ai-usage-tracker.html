@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Usage Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg: #06060b;
+    --bg-1: #0c0c14;
+    --bg-2: #12121c;
+    --bg-3: #1a1a28;
+    --bg-4: #222236;
+    --border: #1c1c2e;
+    --border-2: #2a2a42;
+    --text: #e8e8f0;
+    --text-2: #a0a0bc;
+    --text-3: #6a6a88;
+    --text-4: #3e3e56;
+    --claude: #d4a574;
+    --claude-2: #c4925e;
+    --claude-bg: rgba(212,165,116,0.08);
+    --claude-bg-2: rgba(212,165,116,0.15);
+    --claude-glow: rgba(212,165,116,0.25);
+    --codex: #10a37f;
+    --codex-2: #0d8a6a;
+    --codex-bg: rgba(16,163,127,0.08);
+    --codex-bg-2: rgba(16,163,127,0.15);
+    --codex-glow: rgba(16,163,127,0.25);
+    --accent: #7c6aef;
+    --accent-bg: rgba(124,106,239,0.08);
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --r: 14px;
+    --r-sm: 10px;
+    --r-xs: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.15);
+    --shadow-lg: 0 4px 12px rgba(0,0,0,0.4), 0 16px 48px rgba(0,0,0,0.25);
+    --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Ambient background */
+  .ambient {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .ambient-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.12;
+    animation: orbFloat 25s ease-in-out infinite;
+  }
+  .ambient-orb:nth-child(1) { width: 600px; height: 600px; background: var(--claude); top: -10%; left: 10%; }
+  .ambient-orb:nth-child(2) { width: 500px; height: 500px; background: var(--codex); bottom: -10%; right: 10%; animation-delay: -8s; }
+  .ambient-orb:nth-child(3) { width: 400px; height: 400px; background: var(--accent); top: 40%; left: 50%; animation-delay: -16s; }
+  @keyframes orbFloat {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(30px, -40px); }
+    50% { transform: translate(-20px, 30px); }
+    75% { transform: translate(40px, 20px); }
+  }
+
+  .app { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 20px 24px 80px; }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0 28px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-mark {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--claude), var(--codex));
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    font-size: 15px;
+    color: #fff;
+    letter-spacing: -0.5px;
+    box-shadow: 0 4px 20px var(--claude-glow), 0 4px 20px var(--codex-glow);
+    flex-shrink: 0;
+  }
+
+  .header-text h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    line-height: 1.2;
+  }
+
+  .header-text p {
+    font-size: 12px;
+    color: var(--text-3);
+    font-weight: 500;
+    margin-top: 1px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+  }
+
+  .pulse-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px rgba(34,197,94,0.5);
+    animation: pulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
+
+  .header-actions { display: flex; gap: 6px; }
+
+  .icon-btn {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-2);
+    color: var(--text-3);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all var(--transition);
+  }
+
+  .icon-btn:hover { background: var(--bg-3); color: var(--text); border-color: var(--border-2); }
+  .icon-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+
+  /* ── STATS GRID ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .stat-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 18px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: all var(--transition);
+  }
+
+  .stat-card:hover { border-color: var(--border-2); transform: translateY(-1px); }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    filter: blur(50px);
+    opacity: 0.08;
+    pointer-events: none;
+  }
+
+  .stat-card.t-claude::before { background: var(--claude); }
+  .stat-card.t-codex::before { background: var(--codex); }
+  .stat-card.t-accent::before { background: var(--accent); }
+  .stat-card.t-green::before { background: var(--green); }
+
+  .stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+
+  .stat-icon {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .stat-icon.claude-i { background: var(--claude-bg); color: var(--claude); }
+  .stat-icon.codex-i { background: var(--codex-bg); color: var(--codex); }
+  .stat-icon.accent-i { background: var(--accent-bg); color: var(--accent); }
+  .stat-icon.green-i { background: rgba(34,197,94,0.1); color: var(--green); }
+
+  .stat-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+  }
+
+  .stat-badge.up { background: rgba(34,197,94,0.12); color: var(--green); }
+  .stat-badge.down { background: rgba(239,68,68,0.12); color: var(--red); }
+
+  .stat-val {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+    margin-bottom: 3px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .stat-val.c-claude { color: var(--claude); }
+  .stat-val.c-codex { color: var(--codex); }
+  .stat-val.c-accent { color: var(--accent); }
+  .stat-val.c-green { color: var(--green); }
+  .stat-val.c-grad {
+    background: linear-gradient(135deg, var(--claude), var(--codex));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .stat-label { font-size: 11px; color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+
+  /* ── MAIN LAYOUT ── */
+  .main-row {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 960px) { .main-row { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-2);
+  }
+
+  .panel-body { padding: 16px 20px; }
+
+  /* ── TABS ── */
+  .tab-group {
+    display: flex;
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 3px;
+    border: 1px solid var(--border);
+  }
+
+  .tab-btn {
+    padding: 5px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: inherit;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+  }
+
+  .tab-btn:hover { color: var(--text-2); }
+  .tab-btn.on { background: var(--accent); color: #fff; }
+
+  /* ── CALENDAR ── */
+  .cal-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .cal-nav-btn {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-3);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all var(--transition);
+  }
+
+  .cal-nav-btn:hover { background: var(--bg-3); color: var(--text); }
+
+  .cal-month {
+    font-size: 14px;
+    font-weight: 700;
+    min-width: 140px;
+    text-align: center;
+    letter-spacing: -0.3px;
+  }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+
+  .cal-head {
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-4);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 0;
+  }
+
+  .cal-cell {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all var(--transition);
+    position: relative;
+    border: 1.5px solid transparent;
+    gap: 2px;
+  }
+
+  .cal-cell:hover:not(.empty) { transform: scale(1.12); z-index: 2; border-color: var(--border-2); }
+  .cal-cell.empty { pointer-events: none; }
+  .cal-cell.today { border-color: var(--accent); box-shadow: 0 0 12px rgba(124,106,239,0.2); }
+
+  .cal-cell .num { font-size: 10px; color: var(--text-3); font-weight: 600; }
+  .cal-cell .dots { display: flex; gap: 2px; }
+  .cal-cell .dot { width: 4px; height: 4px; border-radius: 50%; }
+
+  .cal-cell.h-1 { background: rgba(212,165,116,0.06); }
+  .cal-cell.h-2 { background: rgba(212,165,116,0.14); }
+  .cal-cell.h-3 { background: rgba(212,165,116,0.24); }
+  .cal-cell.h-4 { background: rgba(212,165,116,0.38); }
+
+  .cal-legend {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0 0;
+    flex-wrap: wrap;
+  }
+
+  .cal-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--text-3);
+    font-weight: 600;
+  }
+
+  .cal-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  .cal-heatbar {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+    align-items: center;
+  }
+
+  .cal-heatbar span { font-size: 9px; color: var(--text-4); font-weight: 600; }
+  .cal-heatbar .hb { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* ── SESSIONS ── */
+  .session-scroll {
+    max-height: 480px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bg-3) transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .sess {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    transition: all var(--transition);
+    cursor: default;
+  }
+
+  .sess:hover { border-color: var(--border-2); background: var(--bg-2); }
+
+  .sess-badge {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  .sess-badge.claude { background: var(--claude-bg); color: var(--claude); border: 1px solid rgba(212,165,116,0.12); }
+  .sess-badge.codex { background: var(--codex-bg); color: var(--codex); border: 1px solid rgba(16,163,127,0.12); }
+
+  .sess-info { flex: 1; min-width: 0; }
+
+  .sess-name {
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+  }
+
+  .sess-meta {
+    font-size: 10px;
+    color: var(--text-3);
+    margin-top: 2px;
+    display: flex;
+    gap: 6px;
+    font-weight: 500;
+  }
+
+  .sess-meta .sep { color: var(--text-4); }
+
+  .sess-right {
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .sess-tokens {
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .sess-tokens-label {
+    font-size: 9px;
+    color: var(--text-4);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── BOTTOM ROW ── */
+  .bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 900px) { .bottom-row { grid-template-columns: 1fr; } }
+
+  /* ── CHART ── */
+  .chart-wrap {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 160px;
+    padding: 12px 0 0;
+  }
+
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+
+  .bar-pair {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    width: 100%;
+    justify-content: center;
+    flex: 1;
+  }
+
+  .bar {
+    width: 14px;
+    border-radius: 4px 4px 1px 1px;
+    min-height: 2px;
+    transition: height 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+  }
+
+  .bar:hover { filter: brightness(1.3); }
+  .bar.b-claude { background: var(--claude); }
+  .bar.b-codex { background: var(--codex); }
+
+  .bar-label { font-size: 9px; color: var(--text-4); font-weight: 700; text-transform: uppercase; }
+
+  /* ── STREAK ── */
+  .streak-block { text-align: center; padding: 16px 0 8px; }
+
+  .streak-emoji { font-size: 28px; margin-bottom: 6px; animation: wiggle 1.2s ease-in-out infinite; }
+  @keyframes wiggle { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+
+  .streak-val {
+    font-size: 64px;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -3px;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--claude), var(--accent), var(--codex));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .streak-sub { font-size: 12px; color: var(--text-3); font-weight: 600; margin-top: 2px; }
+
+  .goals { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+
+  .goal {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .goal-name { font-size: 10px; color: var(--text-3); font-weight: 600; min-width: 80px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+  .goal-track {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-3);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .goal-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .goal-pct {
+    font-size: 10px;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    min-width: 32px;
+    text-align: right;
+  }
+
+  /* ── COST ESTIMATE ── */
+  .cost-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding-top: 4px;
+  }
+
+  .cost-item {
+    padding: 14px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .cost-item-val {
+    font-size: 22px;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -0.5px;
+  }
+
+  .cost-item-label {
+    font-size: 10px;
+    color: var(--text-3);
+    font-weight: 600;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── TOOLTIP ── */
+  .tip {
+    position: fixed;
+    background: var(--bg-2);
+    border: 1px solid var(--border-2);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 200;
+    opacity: 0;
+    transition: opacity 0.12s;
+    box-shadow: var(--shadow-lg);
+    min-width: 190px;
+  }
+
+  .tip.on { opacity: 1; }
+  .tip-date { font-weight: 700; margin-bottom: 8px; font-size: 12px; }
+  .tip-row { display: flex; justify-content: space-between; gap: 16px; margin-top: 3px; color: var(--text-3); font-size: 11px; }
+  .tip-row b { color: var(--text); font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+
+  /* ── MODAL ── */
+  .modal-bg {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+    display: none;
+    place-items: center;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .modal-bg.on { display: grid; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    width: 92%;
+    max-width: 420px;
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: var(--shadow-lg);
+  }
+
+  @keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 20px; letter-spacing: -0.3px; }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+  }
+
+  .field input, .field select {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color var(--transition);
+  }
+
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+
+  .modal-btns { display: flex; gap: 8px; margin-top: 20px; }
+
+  .btn {
+    padding: 10px 18px;
+    border: none;
+    border-radius: var(--r-sm);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition);
+    font-family: inherit;
+    letter-spacing: 0.2px;
+  }
+
+  .btn-p { background: var(--accent); color: #fff; flex: 1; }
+  .btn-p:hover { filter: brightness(1.15); }
+  .btn-g { background: var(--bg-3); color: var(--text-3); }
+  .btn-g:hover { background: var(--bg-4); }
+
+  /* ── FAB ── */
+  .fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--claude), var(--codex));
+    border: none;
+    color: #fff;
+    font-size: 26px;
+    font-weight: 300;
+    cursor: pointer;
+    box-shadow: 0 6px 24px var(--claude-glow), 0 6px 24px var(--codex-glow);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: grid;
+    place-items: center;
+    z-index: 50;
+  }
+
+  .fab:hover { transform: scale(1.08) rotate(90deg); }
+
+  /* ── EXPORT BAR ── */
+  .export-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    margin-top: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .export-bar-info { font-size: 11px; color: var(--text-3); font-weight: 500; }
+  .export-bar-info strong { color: var(--text-2); }
+
+  .export-btns { display: flex; gap: 6px; }
+
+  .btn-sm {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--transition);
+  }
+
+  .btn-sm:hover { background: var(--bg-3); color: var(--text); border-color: var(--border-2); }
+
+  /* ── ANIMATIONS ── */
+  .anim { animation: anim 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  @keyframes anim { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .d1 { animation-delay: 0.04s; } .d2 { animation-delay: 0.08s; } .d3 { animation-delay: 0.12s; }
+  .d4 { animation-delay: 0.16s; } .d5 { animation-delay: 0.2s; } .d6 { animation-delay: 0.24s; }
+</style>
+</head>
+<body>
+
+<div class="ambient">
+  <div class="ambient-orb"></div>
+  <div class="ambient-orb"></div>
+  <div class="ambient-orb"></div>
+</div>
+
+<div class="app">
+  <header class="header anim">
+    <div class="header-brand">
+      <div class="logo-mark">AI</div>
+      <div class="header-text">
+        <h1>AI Usage Tracker</h1>
+        <p>Claude & Codex — Session Monitor</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-indicator">
+        <div class="pulse-dot"></div>
+        <span id="clock"></span>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" title="Export JSON" onclick="exportJSON()">&#8681;</button>
+        <button class="icon-btn" title="Import JSON" onclick="document.getElementById('importFile').click()">&#8679;</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+        <button class="icon-btn" title="Reset Data" onclick="resetData()">&#8634;</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <div class="main-row">
+    <div class="panel anim d2">
+      <div class="panel-header">
+        <span class="panel-title">Calendar Heatmap</span>
+        <div class="cal-nav">
+          <button class="cal-nav-btn" onclick="navMonth(-1)">&#8249;</button>
+          <span class="cal-month" id="calMonth"></span>
+          <button class="cal-nav-btn" onclick="navMonth(1)">&#8250;</button>
+        </div>
+        <div class="tab-group">
+          <button class="tab-btn on" onclick="setFilter('all',this)">All</button>
+          <button class="tab-btn" onclick="setFilter('claude',this)">Claude</button>
+          <button class="tab-btn" onclick="setFilter('codex',this)">Codex</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-legend">
+          <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--claude)"></div>Claude</div>
+          <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--codex)"></div>Codex</div>
+          <div class="cal-heatbar">
+            <span>Less</span>
+            <div class="hb" style="background:rgba(212,165,116,0.06)"></div>
+            <div class="hb" style="background:rgba(212,165,116,0.14)"></div>
+            <div class="hb" style="background:rgba(212,165,116,0.24)"></div>
+            <div class="hb" style="background:rgba(212,165,116,0.38)"></div>
+            <span>More</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel anim d3">
+      <div class="panel-header">
+        <span class="panel-title">Recent Sessions</span>
+        <span style="font-size:10px;color:var(--text-4);font-weight:600" id="sessCount"></span>
+      </div>
+      <div class="panel-body">
+        <div class="session-scroll" id="sessList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-row">
+    <div class="panel anim d4">
+      <div class="panel-header"><span class="panel-title">This Week</span></div>
+      <div class="panel-body">
+        <div class="chart-wrap" id="weekChart"></div>
+      </div>
+    </div>
+
+    <div class="panel anim d5">
+      <div class="panel-header"><span class="panel-title">Streak & Goals</span></div>
+      <div class="panel-body">
+        <div class="streak-block">
+          <div class="streak-emoji">&#128293;</div>
+          <div class="streak-val" id="streakVal">0</div>
+          <div class="streak-sub">day streak</div>
+        </div>
+        <div class="goals" id="goalsArea"></div>
+      </div>
+    </div>
+
+    <div class="panel anim d6">
+      <div class="panel-header"><span class="panel-title">Cost Estimate</span></div>
+      <div class="panel-body">
+        <div class="cost-grid" id="costGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="export-bar anim">
+    <div class="export-bar-info">
+      <strong id="totalSessCount">0</strong> sessions tracked &middot; Data stored locally in your browser
+    </div>
+    <div class="export-btns">
+      <button class="btn-sm" onclick="exportCSV()">Export CSV</button>
+      <button class="btn-sm" onclick="exportJSON()">Export JSON</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tooltip -->
+<div class="tip" id="tip">
+  <div class="tip-date" id="tipDate"></div>
+  <div id="tipBody"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2>+ Log Session</h2>
+    <div class="field"><label>Platform</label><select id="mPlat"><option value="claude">Claude</option><option value="codex">Codex</option></select></div>
+    <div class="field"><label>Session Name</label><input id="mName" placeholder="e.g. Code review, Debug API…"></div>
+    <div class="field"><label>Date</label><input type="date" id="mDate"></div>
+    <div class="field"><label>Tokens Used</label><input type="number" id="mTokens" placeholder="12000"></div>
+    <div class="field"><label>Duration (min)</label><input type="number" id="mDur" placeholder="30"></div>
+    <div class="modal-btns">
+      <button class="btn btn-g" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="addSession()">Add Session</button>
+    </div>
+  </div>
+</div>
+
+<button class="fab" onclick="openModal()" title="Log a session">+</button>
+
+<script>
+// ────────────────────────────────────────────────────
+// DATA LAYER
+// ────────────────────────────────────────────────────
+const KEY = 'ai_tracker_v3';
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+const CLAUDE_NAMES = [
+  'Code review','Debug auth flow','Write unit tests','Refactor API','Schema design',
+  'Draft blog post','Architecture review','Fix CI pipeline','Data analysis',
+  'Prompt engineering','Research synthesis','Design system docs','Sprint planning',
+  'Email drafting','Bug triage','Feature spec','Migration plan','Security audit',
+  'Performance profiling','API documentation'
+];
+
+const CODEX_NAMES = [
+  'Generate boilerplate','Autocomplete module','Test generation','Code translation',
+  'Docstring generation','CLI tool build','Regex builder','SQL optimization',
+  'API scaffolding','Migration script','Refactor legacy code','Build pipeline',
+  'Type annotations','Config generation','Schema validation','Mock data gen'
+];
+
+// Cost rates (approximate $/1M tokens)
+const COST_CLAUDE_INPUT = 3;   // $3/M input tokens
+const COST_CLAUDE_OUTPUT = 15; // $15/M output tokens (we estimate 30% output)
+const COST_CODEX_INPUT = 2;
+const COST_CODEX_OUTPUT = 8;
+
+function seed() {
+  const s = [];
+  const now = new Date();
+  for (let i = 0; i < 120; i++) {
+    const d = new Date(now); d.setDate(d.getDate() - i);
+    const ds = fmt_date(d);
+    const prob = Math.min(0.92, 0.35 + (120 - i) / 180);
+    const n = Math.random() < prob ? Math.ceil(Math.random() * 5) : 0;
+    for (let j = 0; j < n; j++) {
+      const isClaude = Math.random() < 0.58;
+      const names = isClaude ? CLAUDE_NAMES : CODEX_NAMES;
+      const hr = 7 + Math.floor(Math.random() * 14);
+      const mn = Math.floor(Math.random() * 60);
+      s.push({
+        id: `${ds}-${j}-${Math.random().toString(36).slice(2,6)}`,
+        platform: isClaude ? 'claude' : 'codex',
+        name: names[Math.floor(Math.random() * names.length)],
+        date: ds,
+        time: `${String(hr).padStart(2,'0')}:${String(mn).padStart(2,'0')}`,
+        tokens: Math.floor(1500 + Math.random() * 55000),
+        duration: Math.floor(3 + Math.random() * 95)
+      });
+    }
+  }
+  return s;
+}
+
+function load() { try { const d = localStorage.getItem(KEY); return d ? JSON.parse(d) : null; } catch { return null; } }
+function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
+
+let data = load() || seed();
+if (!load()) save(data);
+
+let cMonth = new Date().getMonth();
+let cYear = new Date().getFullYear();
+let filter = 'all';
+
+// ────────────────────────────────────────────────────
+// UTILS
+// ────────────────────────────────────────────────────
+function fmt_date(d) { return d.toISOString().split('T')[0]; }
+function fmt_num(n) { if (n >= 1e6) return (n/1e6).toFixed(1)+'M'; if (n >= 1e3) return (n/1e3).toFixed(1)+'K'; return ''+n; }
+function forDate(ds) { return data.filter(s => s.date === ds); }
+function forMonth(y, m) { const p = `${y}-${String(m+1).padStart(2,'0')}`; return data.filter(s => s.date.startsWith(p)); }
+
+function weekRange() {
+  const t = new Date(); t.setHours(0,0,0,0);
+  const start = new Date(t); start.setDate(t.getDate() - t.getDay());
+  return { start, end: t };
+}
+
+// ────────────────────────────────────────────────────
+// CLOCK
+// ────────────────────────────────────────────────────
+function tick() {
+  const n = new Date();
+  document.getElementById('clock').textContent =
+    n.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) + ' · ' +
+    n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(tick, 1000); tick();
+
+// ────────────────────────────────────────────────────
+// STATS
+// ────────────────────────────────────────────────────
+function renderStats() {
+  const today = fmt_date(new Date());
+  const { start } = weekRange();
+  const lastStart = new Date(start); lastStart.setDate(lastStart.getDate() - 7);
+
+  const claudeAll = data.filter(s => s.platform === 'claude');
+  const codexAll = data.filter(s => s.platform === 'codex');
+  const totalTok = data.reduce((a,s) => a + s.tokens, 0);
+
+  const thisWeek = data.filter(s => new Date(s.date+'T12:00:00') >= start);
+  const lastWeek = data.filter(s => { const d = new Date(s.date+'T12:00:00'); return d >= lastStart && d < start; });
+  const twTok = thisWeek.reduce((a,s) => a + s.tokens, 0);
+  const lwTok = lastWeek.reduce((a,s) => a + s.tokens, 0);
+  const pct = lwTok ? Math.round((twTok - lwTok) / lwTok * 100) : 100;
+
+  const td = forDate(today);
+  const tdTok = td.reduce((a,s) => a + s.tokens, 0);
+  const tdMin = td.reduce((a,s) => a + s.duration, 0);
+
+  const cards = [
+    { icon: 'accent-i', sym: '&#931;', val: fmt_num(totalTok), cls: 'c-grad', label: 'Total Tokens', t: 't-accent' },
+    { icon: 'claude-i', sym: 'C', val: claudeAll.length, cls: 'c-claude', label: 'Claude Sessions', t: 't-claude' },
+    { icon: 'codex-i', sym: 'X', val: codexAll.length, cls: 'c-codex', label: 'Codex Sessions', t: 't-codex' },
+    { icon: 'accent-i', sym: 'W', val: fmt_num(twTok), cls: 'c-accent', label: 'This Week', t: 't-accent', badge: { pct, dir: pct >= 0 ? 'up' : 'down' } },
+    { icon: 'claude-i', sym: '#', val: td.length, cls: 'c-claude', label: 'Today\'s Sessions', t: 't-claude' },
+    { icon: 'green-i', sym: '&#9201;', val: tdMin > 0 ? (tdMin >= 60 ? Math.floor(tdMin/60)+'h '+tdMin%60+'m' : tdMin+'m') : '0m', cls: 'c-green', label: 'Active Today', t: 't-green' },
+  ];
+
+  document.getElementById('statsGrid').innerHTML = cards.map((c,i) => `
+    <div class="stat-card ${c.t} anim d${i+1}">
+      <div class="stat-top">
+        <div class="stat-icon ${c.icon}">${c.sym}</div>
+        ${c.badge ? `<span class="stat-badge ${c.badge.dir}">${c.badge.dir==='up'?'&#9650;':'&#9660;'} ${Math.abs(c.badge.pct)}%</span>` : ''}
+      </div>
+      <div class="stat-val ${c.cls}">${c.val}</div>
+      <div class="stat-label">${c.label}</div>
+    </div>
+  `).join('');
+}
+
+// ────────────────────────────────────────────────────
+// CALENDAR
+// ────────────────────────────────────────────────────
+function renderCal() {
+  const grid = document.getElementById('calGrid');
+  const first = new Date(cYear, cMonth, 1);
+  const last = new Date(cYear, cMonth + 1, 0).getDate();
+  const off = first.getDay();
+  const now = new Date();
+
+  document.getElementById('calMonth').textContent = `${MONTHS[cMonth]} ${cYear}`;
+
+  let h = DAYS.map(d => `<div class="cal-head">${d}</div>`).join('');
+  for (let i = 0; i < off; i++) h += '<div class="cal-cell empty"></div>';
+
+  for (let day = 1; day <= last; day++) {
+    const ds = `${cYear}-${String(cMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    let ss = forDate(ds);
+    if (filter === 'claude') ss = ss.filter(s => s.platform === 'claude');
+    if (filter === 'codex') ss = ss.filter(s => s.platform === 'codex');
+
+    const tok = ss.reduce((a,s) => a + s.tokens, 0);
+    const lvl = tok === 0 ? 0 : tok < 5000 ? 1 : tok < 18000 ? 2 : tok < 40000 ? 3 : 4;
+    const isToday = day === now.getDate() && cMonth === now.getMonth() && cYear === now.getFullYear();
+    const hasC = ss.some(s => s.platform === 'claude');
+    const hasX = ss.some(s => s.platform === 'codex');
+
+    h += `<div class="cal-cell h-${lvl} ${isToday?'today':''}"
+      onmouseenter="showTip(event,'${ds}')" onmouseleave="hideTip()">
+      <span class="num">${day}</span>
+      <div class="dots">
+        ${hasC?'<div class="dot" style="background:var(--claude)"></div>':''}
+        ${hasX?'<div class="dot" style="background:var(--codex)"></div>':''}
+      </div>
+    </div>`;
+  }
+
+  grid.innerHTML = h;
+}
+
+function navMonth(d) {
+  cMonth += d;
+  if (cMonth > 11) { cMonth = 0; cYear++; }
+  if (cMonth < 0) { cMonth = 11; cYear--; }
+  renderCal();
+}
+
+function setFilter(f, btn) {
+  filter = f;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderCal();
+}
+
+// ────────────────────────────────────────────────────
+// TOOLTIP
+// ────────────────────────────────────────────────────
+function showTip(e, ds) {
+  const tip = document.getElementById('tip');
+  const ss = forDate(ds);
+  const cTok = ss.filter(s => s.platform === 'claude').reduce((a,s) => a + s.tokens, 0);
+  const xTok = ss.filter(s => s.platform === 'codex').reduce((a,s) => a + s.tokens, 0);
+  const mins = ss.reduce((a,s) => a + s.duration, 0);
+
+  document.getElementById('tipDate').textContent = new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  document.getElementById('tipBody').innerHTML = `
+    <div class="tip-row"><span>Sessions</span><b>${ss.length}</b></div>
+    <div class="tip-row"><span style="color:var(--claude)">Claude</span><b>${fmt_num(cTok)}</b></div>
+    <div class="tip-row"><span style="color:var(--codex)">Codex</span><b>${fmt_num(xTok)}</b></div>
+    <div class="tip-row"><span>Duration</span><b>${mins}m</b></div>
+  `;
+
+  tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 220) + 'px';
+  tip.style.top = Math.max(8, e.clientY - 130) + 'px';
+  tip.classList.add('on');
+}
+
+function hideTip() { document.getElementById('tip').classList.remove('on'); }
+
+// ────────────────────────────────────────────────────
+// SESSIONS LIST
+// ────────────────────────────────────────────────────
+function renderSessions() {
+  const sorted = [...data].sort((a,b) => b.date.localeCompare(a.date) || (b.time||'').localeCompare(a.time||''));
+  document.getElementById('sessCount').textContent = `${data.length} total`;
+  document.getElementById('totalSessCount').textContent = data.length;
+
+  document.getElementById('sessList').innerHTML = sorted.slice(0, 25).map(s => `
+    <div class="sess">
+      <div class="sess-badge ${s.platform}">${s.platform === 'claude' ? 'C' : 'X'}</div>
+      <div class="sess-info">
+        <div class="sess-name">${s.name}</div>
+        <div class="sess-meta">
+          <span>${new Date(s.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+          <span class="sep">&middot;</span>
+          <span>${s.time||''}</span>
+          <span class="sep">&middot;</span>
+          <span>${s.duration}m</span>
+        </div>
+      </div>
+      <div class="sess-right">
+        <div class="sess-tokens">${fmt_num(s.tokens)}</div>
+        <div class="sess-tokens-label">tokens</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ────────────────────────────────────────────────────
+// WEEKLY CHART
+// ────────────────────────────────────────────────────
+function renderWeek() {
+  const now = new Date();
+  const result = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now); d.setDate(d.getDate() - d.getDay() + i);
+    const ds = fmt_date(d);
+    const ss = forDate(ds);
+    result.push({
+      label: DAYS[i],
+      claude: ss.filter(s => s.platform === 'claude').reduce((a,s) => a + s.tokens, 0),
+      codex: ss.filter(s => s.platform === 'codex').reduce((a,s) => a + s.tokens, 0)
+    });
+  }
+
+  const mx = Math.max(...result.map(r => Math.max(r.claude, r.codex)), 1);
+
+  document.getElementById('weekChart').innerHTML = result.map(r => `
+    <div class="bar-col">
+      <div class="bar-pair">
+        <div class="bar b-claude" style="height:${Math.max(2, r.claude/mx*130)}px" title="Claude: ${fmt_num(r.claude)}"></div>
+        <div class="bar b-codex" style="height:${Math.max(2, r.codex/mx*130)}px" title="Codex: ${fmt_num(r.codex)}"></div>
+      </div>
+      <div class="bar-label">${r.label}</div>
+    </div>
+  `).join('');
+}
+
+// ────────────────────────────────────────────────────
+// STREAK & GOALS
+// ────────────────────────────────────────────────────
+function renderStreak() {
+  let streak = 0;
+  const now = new Date();
+  for (let i = 0; i < 400; i++) {
+    const d = new Date(now); d.setDate(d.getDate() - i);
+    if (forDate(fmt_date(d)).length > 0) streak++; else break;
+  }
+  document.getElementById('streakVal').textContent = streak;
+
+  const mo = forMonth(now.getFullYear(), now.getMonth());
+  const moC = mo.filter(s => s.platform === 'claude').length;
+  const moX = mo.filter(s => s.platform === 'codex').length;
+  const moTok = mo.reduce((a,s) => a + s.tokens, 0);
+
+  const goals = [
+    { name: 'Monthly tok', cur: moTok, max: 600000, color: 'var(--accent)' },
+    { name: 'Claude sess', cur: moC, max: 50, color: 'var(--claude)' },
+    { name: 'Codex sess', cur: moX, max: 30, color: 'var(--codex)' },
+    { name: 'Streak', cur: streak, max: 30, color: 'var(--green)' },
+  ];
+
+  document.getElementById('goalsArea').innerHTML = goals.map(g => {
+    const p = Math.min(100, Math.round(g.cur / g.max * 100));
+    return `<div class="goal">
+      <div class="goal-name">${g.name}</div>
+      <div class="goal-track"><div class="goal-fill" style="width:${p}%;background:${g.color}"></div></div>
+      <div class="goal-pct" style="color:${g.color}">${p}%</div>
+    </div>`;
+  }).join('');
+}
+
+// ────────────────────────────────────────────────────
+// COST ESTIMATE
+// ────────────────────────────────────────────────────
+function renderCost() {
+  const now = new Date();
+  const mo = forMonth(now.getFullYear(), now.getMonth());
+  const { start } = weekRange();
+  const wk = data.filter(s => new Date(s.date+'T12:00:00') >= start);
+  const td = forDate(fmt_date(now));
+
+  function est(sessions) {
+    let cost = 0;
+    sessions.forEach(s => {
+      const inputTok = s.tokens * 0.7;
+      const outputTok = s.tokens * 0.3;
+      if (s.platform === 'claude') {
+        cost += (inputTok / 1e6) * COST_CLAUDE_INPUT + (outputTok / 1e6) * COST_CLAUDE_OUTPUT;
+      } else {
+        cost += (inputTok / 1e6) * COST_CODEX_INPUT + (outputTok / 1e6) * COST_CODEX_OUTPUT;
+      }
+    });
+    return cost;
+  }
+
+  const items = [
+    { val: '$' + est(td).toFixed(2), label: 'Today' },
+    { val: '$' + est(wk).toFixed(2), label: 'This Week' },
+    { val: '$' + est(mo).toFixed(2), label: 'This Month' },
+    { val: '$' + est(data).toFixed(2), label: 'All Time' },
+  ];
+
+  document.getElementById('costGrid').innerHTML = items.map(c =>
+    `<div class="cost-item"><div class="cost-item-val">${c.val}</div><div class="cost-item-label">${c.label}</div></div>`
+  ).join('');
+}
+
+// ────────────────────────────────────────────────────
+// MODAL
+// ────────────────────────────────────────────────────
+function openModal() {
+  document.getElementById('mDate').value = fmt_date(new Date());
+  document.getElementById('mName').value = '';
+  document.getElementById('mTokens').value = '';
+  document.getElementById('mDur').value = '';
+  document.getElementById('modalBg').classList.add('on');
+}
+
+function closeModal() { document.getElementById('modalBg').classList.remove('on'); }
+
+function addSession() {
+  const plat = document.getElementById('mPlat').value;
+  const name = document.getElementById('mName').value || (plat === 'claude' ? 'Claude session' : 'Codex session');
+  const date = document.getElementById('mDate').value;
+  const tokens = parseInt(document.getElementById('mTokens').value) || 8000;
+  const dur = parseInt(document.getElementById('mDur').value) || 15;
+  const n = new Date();
+
+  data.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    platform: plat, name, date,
+    time: `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`,
+    tokens, duration: dur
+  });
+
+  save(data);
+  closeModal();
+  renderAll();
+}
+
+// ────────────────────────────────────────────────────
+// EXPORT / IMPORT
+// ────────────────────────────────────────────────────
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ai-usage-${fmt_date(new Date())}.json`;
+  a.click();
+}
+
+function exportCSV() {
+  const header = 'id,platform,name,date,time,tokens,duration\n';
+  const rows = data.map(s => `${s.id},${s.platform},"${s.name}",${s.date},${s.time},${s.tokens},${s.duration}`).join('\n');
+  const blob = new Blob([header + rows], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ai-usage-${fmt_date(new Date())}.csv`;
+  a.click();
+}
+
+function importJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (Array.isArray(imported)) {
+        data = imported;
+        save(data);
+        renderAll();
+        alert('Data imported successfully!');
+      }
+    } catch { alert('Invalid JSON file'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function resetData() {
+  if (confirm('Reset all data and generate fresh sample data?')) {
+    data = seed();
+    save(data);
+    renderAll();
+  }
+}
+
+// ────────────────────────────────────────────────────
+// KEYBOARD SHORTCUTS
+// ────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') openModal();
+});
+
+// ────────────────────────────────────────────────────
+// RENDER ALL
+// ────────────────────────────────────────────────────
+function renderAll() {
+  renderStats();
+  renderCal();
+  renderSessions();
+  renderWeek();
+  renderStreak();
+  renderCost();
+}
+
+renderAll();
+
+// ────────────────────────────────────────────────────
+// SERVICE WORKER REGISTRATION (PWA)
+// ────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
